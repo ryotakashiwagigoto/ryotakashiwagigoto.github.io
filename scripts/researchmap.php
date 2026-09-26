@@ -21,6 +21,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 /** researchmap permalink (https://researchmap.jp/{permalink}). */
 const GOTO_RM_PERMALINK = 'gotoryota';
 
+/** Author names treated as "me" (shown emphasised in author lists). */
+const GOTO_RM_SELF_PATTERN = '/Ryota\s+Goto|Goto,?\s*R(yota|\.)?\b|R\.\s*Goto|後藤\s*良太/u';
+
 /** How long fetched data is reused before asking researchmap again. */
 const GOTO_RM_CACHE_TTL = 12 * HOUR_IN_SECONDS;
 
@@ -125,6 +128,14 @@ function goto_rm_text( $value, $lang = 'ja' ) {
 }
 
 /**
+ * Escape text but keep simple formatting tags researchmap allows in titles.
+ */
+function goto_rm_rich( $text ) {
+	$html = esc_html( $text );
+	return preg_replace( '#&lt;(/?)(sub|sup|i|em|b|strong)&gt;#i', '<$1$2>', $html );
+}
+
+/**
  * Author-like list ({ja:[{name}], en:[{name}]}) as escaped HTML, own name in bold.
  */
 function goto_rm_people( $value, $lang = 'ja' ) {
@@ -146,7 +157,7 @@ function goto_rm_people( $value, $lang = 'ja' ) {
 			continue;
 		}
 		$html    = esc_html( $name );
-		$names[] = preg_match( '/Goto|後藤/u', $name ) ? '<strong>' . $html . '</strong>' : $html;
+		$names[] = preg_match( GOTO_RM_SELF_PATTERN, $name ) ? '<strong class="rm-self">' . $html . '</strong>' : $html;
 	}
 	return implode( ', ', $names );
 }
@@ -220,7 +231,7 @@ function goto_rm_biblio( $item ) {
  */
 function goto_rm_render_item( $type, $item, $lang ) {
 	$t = static function ( $key ) use ( $item, $lang ) {
-		return esc_html( goto_rm_text( $item[ $key ] ?? '', $lang ) );
+		return goto_rm_rich( goto_rm_text( $item[ $key ] ?? '', $lang ) );
 	};
 	$parts  = array();
 	$badges = '';
@@ -229,7 +240,7 @@ function goto_rm_render_item( $type, $item, $lang ) {
 		case 'published_papers':
 		case 'misc':
 			$parts[] = goto_rm_people( $item['authors'] ?? null, 'en' );
-			$title   = esc_html( goto_rm_text( $item['paper_title'] ?? '', 'en' ) );
+			$title   = goto_rm_rich( goto_rm_text( $item['paper_title'] ?? '', 'en' ) );
 			$parts[] = '<span class="rm-title">' . $title . '</span>';
 			$venue   = esc_html( goto_rm_text( $item['publication_name'] ?? '', 'en' ) );
 			$biblio  = goto_rm_biblio( $item );
